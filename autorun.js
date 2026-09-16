@@ -1,14 +1,34 @@
-Office.onReady();
+const BREE_CONFIG = {
+
+    logoUrl:
+        "https://bree.com.br/assinatura-email.png",
+
+    // Futuro endpoint de producao.
+    // Ainda vamos construir essa API.
+    userApiUrl:
+        "https://assinatura-api.bree.com.br/user",
+
+    // Somente desenvolvimento local.
+    localUsersUrl:
+        "./users.json"
+};
+
 
 function clean(value) {
-    if (value === null || value === undefined) {
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
         return "";
     }
 
     return String(value).trim();
 }
 
+
 function escapeHtml(value) {
+
     return clean(value)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -16,6 +36,7 @@ function escapeHtml(value) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+
 
 function formatPhone(value) {
 
@@ -25,32 +46,37 @@ function formatPhone(value) {
         return "";
     }
 
-    // Se ja possui codigo internacional, mantem.
     if (phone.startsWith("+")) {
         return phone;
     }
 
-    // Telefones brasileiros armazenados como (41) 3167-XXXX.
     return "+55 " + phone;
 }
 
+
 function formatAddress(user) {
 
-    const street = clean(user.street);
-    const city = clean(user.city);
-    const state = clean(user.state);
-    const postalCode = clean(user.postalCode);
+    const street =
+        clean(user.street);
 
-    let location = "";
+    const city =
+        clean(user.city);
+
+    const state =
+        clean(user.state);
+
+    const postalCode =
+        clean(user.postalCode);
+
+    let cityState = "";
 
     if (city && state) {
-        location = city + "/" + state;
+        cityState =
+            city + "/" + state;
     }
-    else if (city) {
-        location = city;
-    }
-    else if (state) {
-        location = state;
+    else {
+        cityState =
+            city || state;
     }
 
     const parts = [];
@@ -59,76 +85,98 @@ function formatAddress(user) {
         parts.push(street);
     }
 
-    if (location) {
-        parts.push(location);
+    if (cityState) {
+        parts.push(cityState);
     }
 
-    let address = parts.join(", ");
+    let address =
+        parts.join(", ");
 
     if (address) {
         address += " – Brazil";
     }
 
     if (postalCode) {
-        address += (address ? " " : "") + postalCode;
+
+        if (address) {
+            address += " ";
+        }
+
+        address += postalCode;
     }
 
     return address;
 }
 
-function getSenderEmail(callback) {
 
-    const item = Office.context.mailbox.item;
+function isLocalDevelopment() {
 
-    // Pega o endereco que esta efetivamente no campo "De".
-    if (item.from && item.from.getAsync) {
-
-        item.from.getAsync(function (result) {
-
-            if (
-                result.status === Office.AsyncResultStatus.Succeeded &&
-                result.value &&
-                result.value.emailAddress
-            ) {
-                callback(
-                    result.value.emailAddress
-                        .toLowerCase()
-                        .trim()
-                );
-
-                return;
-            }
-
-            // Fallback para a conta principal.
-            callback(
-                Office.context.mailbox.userProfile.emailAddress
-                    .toLowerCase()
-                    .trim()
-            );
-        });
-
-        return;
-    }
-
-    callback(
-        Office.context.mailbox.userProfile.emailAddress
-            .toLowerCase()
-            .trim()
+    return (
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1"
     );
 }
 
-async function loadUsers() {
 
-    const response = await fetch(
-        "https://localhost:3000/users.json?t=" + Date.now(),
-        {
-            cache: "no-store"
+async function loadUser(email) {
+
+    /*
+     * Desenvolvimento:
+     * carrega users.json local.
+     */
+    if (isLocalDevelopment()) {
+
+        const response =
+            await fetch(
+                BREE_CONFIG.localUsersUrl +
+                "?t=" +
+                Date.now(),
+                {
+                    cache: "no-store"
+                }
+            );
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Falha ao carregar users.json. HTTP " +
+                response.status
+            );
         }
-    );
+
+        const users =
+            await response.json();
+
+        return users[email] || null;
+    }
+
+
+    /*
+     * Producao:
+     * consulta somente o usuario atual.
+     */
+    const url =
+        BREE_CONFIG.userApiUrl +
+        "?email=" +
+        encodeURIComponent(email);
+
+    const response =
+        await fetch(
+            url,
+            {
+                method: "GET",
+                cache: "no-store"
+            }
+        );
+
+    if (response.status === 404) {
+        return null;
+    }
 
     if (!response.ok) {
+
         throw new Error(
-            "Falha ao carregar users.json. HTTP " +
+            "Falha ao consultar usuario. HTTP " +
             response.status
         );
     }
@@ -136,87 +184,117 @@ async function loadUsers() {
     return await response.json();
 }
 
+
+function getSenderEmail(callback) {
+
+    const item =
+        Office.context.mailbox.item;
+
+    /*
+     * Tenta pegar o endereco atualmente
+     * selecionado no campo De.
+     */
+    if (
+        item.from &&
+        item.from.getAsync
+    ) {
+
+        item.from.getAsync(
+            function (result) {
+
+                if (
+                    result.status ===
+                        Office.AsyncResultStatus.Succeeded &&
+                    result.value &&
+                    result.value.emailAddress
+                ) {
+
+                    callback(
+                        result.value.emailAddress
+                            .toLowerCase()
+                            .trim()
+                    );
+
+                    return;
+                }
+
+                /*
+                 * Fallback:
+                 * usuario logado.
+                 */
+                callback(
+                    Office.context.mailbox
+                        .userProfile
+                        .emailAddress
+                        .toLowerCase()
+                        .trim()
+                );
+            }
+        );
+
+        return;
+    }
+
+
+    callback(
+        Office.context.mailbox
+            .userProfile
+            .emailAddress
+            .toLowerCase()
+            .trim()
+    );
+}
+
+
 function buildSignature(user, email) {
 
-    const displayName = escapeHtml(user.displayName);
+    const displayName =
+        escapeHtml(user.displayName);
 
-    const titlePt = escapeHtml(user.titlePt);
-    const titleEn = escapeHtml(user.titleEn);
+    const titlePt =
+        escapeHtml(user.titlePt);
 
-    const extraLine = escapeHtml(user.extraLine);
+    const titleEn =
+        escapeHtml(user.titleEn);
 
-    const phone = escapeHtml(
-        formatPhone(user.phone)
-    );
+    const extraLine =
+        escapeHtml(user.extraLine);
 
-    const mobile = escapeHtml(
-        formatPhone(user.mobile)
-    );
+    const phone =
+        escapeHtml(
+            formatPhone(user.phone)
+        );
 
-    const address = escapeHtml(
-        formatAddress(user)
-    );
+    const mobile =
+        escapeHtml(
+            formatPhone(user.mobile)
+        );
 
-    const safeEmail = escapeHtml(email);
+    const address =
+        escapeHtml(
+            formatAddress(user)
+        );
+
+    const safeEmail =
+        escapeHtml(email);
+
 
     let titleHtml = "";
 
     if (titlePt && titleEn) {
+
         titleHtml =
-            titlePt + " / " + titleEn;
+            titlePt +
+            " / " +
+            titleEn;
     }
     else {
+
         titleHtml =
-            titlePt || titleEn;
+            titlePt ||
+            titleEn;
     }
 
-    let extraHtml = "";
-
-    if (extraLine) {
-        extraHtml = `
-            <tr>
-                <td>
-                    ${extraLine}
-                </td>
-            </tr>
-        `;
-    }
-
-    let phoneHtml = "";
-
-    if (phone) {
-        phoneHtml = `
-            <tr>
-                <td>
-                    ${phone}
-                </td>
-            </tr>
-        `;
-    }
-
-    let mobileHtml = "";
-
-    if (mobile) {
-        mobileHtml = `
-            <tr>
-                <td>
-                    ${mobile}
-                </td>
-            </tr>
-        `;
-    }
-
-    let addressHtml = "";
-
-    if (address) {
-        addressHtml = `
-            <tr>
-                <td>
-                    ${address}
-                </td>
-            </tr>
-        `;
-    }
 
     return `
 <table
@@ -231,7 +309,7 @@ function buildSignature(user, email) {
     ">
 
     <tr>
-        <td style="padding:0 0 10px 0;">
+        <td style="padding-bottom:10px;">
             Atenciosamente,
         </td>
     </tr>
@@ -244,26 +322,67 @@ function buildSignature(user, email) {
 
     ${
         titleHtml
-            ? `
-            <tr>
-                <td>
-                    ${titleHtml}
-                </td>
-            </tr>
-            `
-            : ""
+        ? `
+        <tr>
+            <td>
+                ${titleHtml}
+            </td>
+        </tr>
+        `
+        : ""
     }
 
-    ${extraHtml}
+    ${
+        extraLine
+        ? `
+        <tr>
+            <td>
+                ${extraLine}
+            </td>
+        </tr>
+        `
+        : ""
+    }
 
-    ${addressHtml}
+    ${
+        address
+        ? `
+        <tr>
+            <td>
+                ${address}
+            </td>
+        </tr>
+        `
+        : ""
+    }
 
-    ${phoneHtml}
+    ${
+        phone
+        ? `
+        <tr>
+            <td>
+                ${phone}
+            </td>
+        </tr>
+        `
+        : ""
+    }
 
-    ${mobileHtml}
+    ${
+        mobile
+        ? `
+        <tr>
+            <td>
+                ${mobile}
+            </td>
+        </tr>
+        `
+        : ""
+    }
 
     <tr>
         <td>
+
             <a
                 href="mailto:${safeEmail}"
                 style="
@@ -283,19 +402,22 @@ function buildSignature(user, email) {
                 ">
                 www.bree.com.br
             </a>
+
         </td>
     </tr>
 
     <tr>
         <td style="padding-top:10px;">
+
             <img
-                src="https://bree.com.br/assinatura-email.png"
+                src="${BREE_CONFIG.logoUrl}"
                 alt="Bree"
                 width="480"
                 style="
                     display:block;
                     border:0;
                 ">
+
         </td>
     </tr>
 
@@ -303,84 +425,130 @@ function buildSignature(user, email) {
 `;
 }
 
+
 function applyBreeSignature(event) {
 
     const host =
-        Office.context.mailbox.diagnostics.hostName;
+        Office.context.mailbox
+            .diagnostics
+            .hostName;
 
-    // O Outlook Classico sera tratado pela GPO.
+    /*
+     * Outlook Classico:
+     * tratado pela GPO.
+     */
     if (
         host !== "newOutlookWindows" &&
         host !== "OutlookWebApp"
     ) {
+
         event.completed();
         return;
     }
 
-    getSenderEmail(async function (email) {
 
-        try {
+    getSenderEmail(
+        async function (email) {
 
-            const users = await loadUsers();
+            try {
 
-            const user = users[email];
+                const user =
+                    await loadUser(email);
 
-            if (!user) {
+                if (!user) {
+
+                    console.error(
+                        "Bree Signature: usuario nao encontrado:",
+                        email
+                    );
+
+                    event.completed();
+                    return;
+                }
+
+
+                const signature =
+                    buildSignature(
+                        user,
+                        email
+                    );
+
+
+                Office.context.mailbox
+                    .item
+                    .body
+                    .setSignatureAsync(
+
+                        signature,
+
+                        {
+                            coercionType:
+                                Office.CoercionType.Html,
+
+                            asyncContext:
+                                event
+                        },
+
+                        function (result) {
+
+                            if (
+                                result.status !==
+                                Office.AsyncResultStatus.Succeeded
+                            ) {
+
+                                console.error(
+                                    "Bree Signature:",
+                                    result.error
+                                );
+                            }
+
+                            result
+                                .asyncContext
+                                .completed();
+                        }
+                    );
+            }
+            catch (error) {
 
                 console.error(
-                    "Bree Signature: usuario nao encontrado:",
-                    email
+                    "Bree Signature:",
+                    error
                 );
 
                 event.completed();
-                return;
             }
-
-            const signature =
-                buildSignature(user, email);
-
-            Office.context.mailbox.item.body
-                .setSignatureAsync(
-                    signature,
-                    {
-                        coercionType:
-                            Office.CoercionType.Html,
-                        asyncContext: event
-                    },
-                    function (result) {
-
-                        if (
-                            result.status !==
-                            Office.AsyncResultStatus.Succeeded
-                        ) {
-                            console.error(
-                                "Bree Signature:",
-                                result.error
-                            );
-                        }
-
-                        result.asyncContext.completed();
-                    }
-                );
-
         }
-        catch (error) {
-
-            console.error(
-                "Bree Signature:",
-                error
-            );
-
-            event.completed();
-        }
-    });
+    );
 }
 
-function onMessageComposeHandler(event) {
+
+/*
+ * Novo email / resposta / encaminhamento.
+ */
+function onNewMessageComposeHandler(event) {
+
     applyBreeSignature(event);
 }
 
+
+/*
+ * Usuario alterou o campo "De".
+ */
+function onMessageFromChangedHandler(event) {
+
+    applyBreeSignature(event);
+}
+
+
+/*
+ * Associacao exigida para event-based activation.
+ */
 Office.actions.associate(
-    "onMessageComposeHandler",
-    onMessageComposeHandler
+    "onNewMessageComposeHandler",
+    onNewMessageComposeHandler
+);
+
+Office.actions.associate(
+    "onMessageFromChangedHandler",
+    onMessageFromChangedHandler
 );
