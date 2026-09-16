@@ -9,24 +9,26 @@
 
     <Id>7B2E923E-2B08-4E08-98BF-B85CDDAE2026</Id>
 
-    <Version>1.0.0.0</Version>
+    <Version>1.1.0.0</Version>
 
     <ProviderName>Bree</ProviderName>
 
     <DefaultLocale>pt-BR</DefaultLocale>
 
-    <DisplayName DefaultValue="Bree - Assinatura Corporativa"/>
+    <DisplayName
+        DefaultValue="Bree - Assinatura Corporativa"/>
 
     <Description
         DefaultValue="Insere automaticamente a assinatura corporativa Bree."/>
-        <IconUrl
-    DefaultValue="https://localhost:3000/icon-64.png"/>
+
+    <IconUrl
+        DefaultValue="https://bree-ti.github.io/bree-outlook-signature/icon-64.png"/>
 
     <HighResolutionIconUrl
-    DefaultValue="https://localhost:3000/icon-128.png"/>
+        DefaultValue="https://bree-ti.github.io/bree-outlook-signature/icon-128.png"/>
 
-    <SupportUrl 
-    DefaultValue="https://www.bree.com.br"/>
+    <SupportUrl
+        DefaultValue="https://www.bree.com.br"/>
 
     <Hosts>
         <Host Name="Mailbox"/>
@@ -38,7 +40,6 @@
         </Sets>
     </Requirements>
 
-    <!-- Parte obrigatoria do schema antigo -->
     <FormSettings>
 
         <Form xsi:type="ItemRead">
@@ -46,7 +47,7 @@
             <DesktopSettings>
 
                 <SourceLocation
-                    DefaultValue="https://localhost:3000/autorun.html"/>
+                    DefaultValue="https://bree-ti.github.io/bree-outlook-signature/autorun.html"/>
 
                 <RequestedHeight>250</RequestedHeight>
 
@@ -58,7 +59,9 @@
 
     <Permissions>ReadWriteItem</Permissions>
 
-    <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule
+        xsi:type="RuleCollection"
+        Mode="Or">
 
         <Rule
             xsi:type="ItemIs"
@@ -80,14 +83,11 @@
 
             <Requirements>
 
-                <bt:Sets DefaultMinVersion="1.10">
-
+                <bt:Sets DefaultMinVersion="1.13">
                     <bt:Set Name="Mailbox"/>
-
                 </bt:Sets>
 
             </Requirements>
-
 
             <Hosts>
 
@@ -105,7 +105,6 @@
 
                     </Runtimes>
 
-
                     <DesktopFormFactor>
 
                         <FunctionFile
@@ -117,7 +116,11 @@
 
                                 <LaunchEvent
                                     Type="OnNewMessageCompose"
-                                    FunctionName="onMessageComposeHandler"/>
+                                    FunctionName="onNewMessageComposeHandler"/>
+
+                                <LaunchEvent
+                                    Type="OnMessageFromChanged"
+                                    FunctionName="onMessageFromChangedHandler"/>
 
                             </LaunchEvents>
 
@@ -132,21 +135,17 @@
 
             </Hosts>
 
-
             <Resources>
 
                 <bt:Urls>
 
-                    <!-- Novo Outlook e OWA carregam este HTML -->
                     <bt:Url
                         id="WebViewRuntime.Url"
-                        DefaultValue="https://localhost:3000/autorun.html"/>
+                        DefaultValue="https://bree-ti.github.io/bree-outlook-signature/autorun.html"/>
 
-                    <!-- Outlook Classico carregaria JS diretamente;
-                         nosso codigo detecta e ignora o Classico -->
                     <bt:Url
                         id="JSRuntime.Url"
-                        DefaultValue="https://localhost:3000/autorun.js"/>
+                        DefaultValue="https://bree-ti.github.io/bree-outlook-signature/autorun.js"/>
 
                 </bt:Urls>
 
