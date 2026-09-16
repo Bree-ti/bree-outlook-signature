@@ -1,0 +1,17 @@
+# Dados internos
+users.json
+
+# Certificados e chaves locais
+*.crt
+*.key
+
+# Dependencias
+node_modules/
+
+# Temporarios
+*.log
+.DS_Store
+Thumbs.db
+
+# Arquivos usados somente durante desenvolvimento
+logo-original.png
