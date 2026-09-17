@@ -308,11 +308,6 @@ function buildSignature(user, email) {
         color:#294f84;
     ">
 
-    <tr>
-        <td style="padding-bottom:10px;">
-            Atenciosamente,
-        </td>
-    </tr>
 
     <tr>
         <td style="font-weight:bold;">
